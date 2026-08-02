@@ -182,3 +182,4 @@ python3 manage.py shell
 **Autor**: Sistema de Gestión Hospitalaria  
 **Versión**: 1.0  
 **Fecha**: 2026
+# Gestion_Guardia
