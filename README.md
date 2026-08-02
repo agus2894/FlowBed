@@ -1,6 +1,8 @@
-# 🏥 Sistema de Gestión de Guardia Hospitalaria
+# 🏥 FlowBed
 
-Aplicación web simple para gestionar el flujo de pacientes en una Guardia hospitalaria.
+**Sistema inteligente de gestión de flujo de pacientes en guardia hospitalaria**
+
+FlowBed es una aplicación web que optimiza la gestión de posiciones asistenciales en tiempo real, permitiendo identificar cuellos de botella y mejorar los tiempos de espera para asignación de camas.
 
 ## 🎯 Características
 
@@ -22,8 +24,10 @@ Aplicación web simple para gestionar el flujo de pacientes en una Guardia hospi
   - Cambio de estado con un click
   - **Selección de destino al ocupar**: Al cargar un paciente, se debe seleccionar su destino (PISO, UTI, UTIM)
   - **Cronómetro en tiempo real**: Muestra el tiempo transcurrido desde que se ocupó la posición
-  - Registro automático de egreso con duración cuando el paciente se desocupa
-  - Historial de egresos con timestamp y duración de estadía
+  - **Marcar destino asignado**: Detiene el cronómetro cuando el paciente obtiene su cama final
+  - **Historial completo**: Registro de todos los pacientes con tiempos de espera
+  - **Análisis de cuellos de botella**: Estadísticas por destino para identificar demoras
+  - **Alertas visuales**: Tiempos coloreados según criticidad (verde < 30min, amarillo < 60min, rojo > 60min)
 
 ## 🚀 Instalación y Uso
 
@@ -62,21 +66,25 @@ Ir a: **http://127.0.0.1:8000/**
 5. Click en "Guardar"
 6. La posición mostrará:
    - Nombre del paciente
-   - Destino seleccionado
-   - **Cronómetro en tiempo real** que cuenta el tiempo desde que se ocupó
+   - Destino solicitado
+   - **Cronómetro en tiempo real** que cuenta el tiempo de espera
+
+### Marcar destino asignado (detener cronómetro)
+1. Cuando el paciente obtenga su cama final, click en **"📍 Marcar Destino"**
+2. Seleccionar el destino final donde fue asignado
+3. El cronómetro **se detiene automáticamente** ⏹️
+4. Se registra el evento en el historial con el tiempo exacto de espera
+
+### Ver historial y estadísticas
+1. Click en **"📊 Ver Historial y Estadísticas"** en el dashboard
+2. Analiza:
+   - Tiempos promedio por destino (identifica cuellos de botella)
+   - Historial completo de pacientes con tiempos de espera
+   - Estadísticas generales del sistema
 
 ### Desocupar una posición
-1. Cambiar una posición OCUPADA a cualquier otro estado (LIBRE, LIMPIEZA, etc.)
-2. El sistema automáticamente:
-   - Registra un EventoEgreso con el destino previamente seleccionado
-   - Calcula la duración de estadía
-   - Guarda timestamp de ingreso y egreso
-   - Limpia la posición
-
-### Cambiar otros estados
-1. Hacer click en cualquier posición
-2. Seleccionar el nuevo estado (RESERVADO, FUERA_SERVICIO, etc.)
-3. Click en "Guardar"
+1. Cambiar una posición OCUPADA a otro estado (LIBRE, LIMPIEZA, etc.)
+2. El sistema limpia todos los datos automáticamente
 
 ## 🗂️ Estructura del proyecto
 
