@@ -29,33 +29,6 @@ FlowBed es una aplicación web que optimiza la gestión de posiciones asistencia
   - **Análisis de cuellos de botella**: Estadísticas por destino para identificar demoras
   - **Alertas visuales**: Tiempos coloreados según criticidad (verde < 30min, amarillo < 60min, rojo > 60min)
 
-## 🚀 Instalación y Uso
-
-### 1. Activar el entorno virtual (si es necesario)
-```bash
-source venv/bin/activate  # En Linux/Mac
-# o
-venv\Scripts\activate  # En Windows
-```
-
-### 2. Instalar dependencias (si es la primera vez)
-```bash
-pip install django
-```
-
-### 3. Inicializar las posiciones (solo la primera vez)
-```bash
-python3 manage.py inicializar_posiciones
-```
-
-### 4. Iniciar el servidor
-```bash
-python3 manage.py runserver
-```
-
-### 5. Abrir el navegador
-Ir a: **http://127.0.0.1:8000/**
-
 ## 📱 Cómo usar la aplicación
 
 ### Ocupar una posición con paciente
@@ -86,62 +59,6 @@ Ir a: **http://127.0.0.1:8000/**
 1. Cambiar una posición OCUPADA a otro estado (LIBRE, LIMPIEZA, etc.)
 2. El sistema limpia todos los datos automáticamente
 
-## 🗂️ Estructura del proyecto
-
-```
-Gestor_Camas/
-├── manage.py
-├── Gestores/
-│   ├── settings.py      # Configuración de Django
-│   ├── urls.py          # URLs principales
-│   └── ...
-└── guardia/
-    ├── models.py        # Modelos: Posicion, EventoEgreso
-    ├── views.py         # Vistas y APIs
-    ├── urls.py          # URLs de la app
-    ├── admin.py         # Configuración del admin
-    ├── templates/
-    │   └── guardia/
-    │       └── dashboard.html  # Template principal
-    └── management/
-        └── commands/
-            └── inicializar_posiciones.py
-```
-
-## 📊 Modelos de Base de Datos
-- `timestamp_ingreso` (DateTimeField): Timestamp de cuándo se ocupó la posición
-- `destino_solicitado` (CharField): Destino del paciente (PISO, UTI, UTIM)
-
-### Posicion
-- `id` (CharField): ID único (ej: "C1", "CONS1", "SR1", "ISO1")
-- `tipo` (CharField): cama, consultorio, shock, aislamiento
-- `estado` (CharField): LIBRE, OCUPADO, LIMPIEZA, RESERVADO, FUERA_SERVICIO
-- `timestamp_estado` (DateTimeField): Timestamp del último cambio de estado
-- `nombre_paciente` (CharField): Nombre del paciente (opcional)
-
-### EventoEgreso
-- `posicion_id` (CharField): ID de la posición
-- `paciente` (CharField): Nombre del paciente
-- `destino` (CharField): PISO, UTI, UTIM
-- `timestamp_ingreso` (DateTimeField): Cuándo ingresó el paciente
-- `timestamp_egreso` (DateTimeField): Cuándo egresó el paciente
-- `duracion` (DurationField): Duración calculada automáticamente
-
-## 🔧 Administración
-
-Para acceder al panel de administración de Django:
-
-1. Crear un superusuario:
-```bash
-python3 manage.py createsuperuser
-```
-
-2. Ir a: **http://127.0.0.1:8000/admin/**
-
-3. Desde allí puedes ver:
-   - Todas las posiciones
-   - Historial de egresos
-   - Estadísticas y filtros
 
 ## 🎨 Tecnologías
 
@@ -157,24 +74,6 @@ python3 manage.py createsuperuser
 - Ideal para uso en hospitales con pantallas compartidas
 - Código comentado y simple para fácil mantenimiento
 
-## 🛠️ Comandos útiles
-
-```bash
-# Crear migraciones (si modificas modelos)
-python3 manage.py makemigrations
-
-# Aplicar migraciones
-python3 manage.py migrate
-
-# Reinicializar todas las posiciones
-python3 manage.py inicializar_posiciones
-
-# Ver historial de egresos en la terminal
-python3 manage.py shell
->>> from guardia.models import EventoEgreso
->>> for e in EventoEgreso.objects.all():
-...     print(f"{e.paciente} - {e.posicion_id} → {e.destino} ({e.duracion})")
-```
 
 ## 📈 Próximas mejoras (opcional)
 
@@ -187,7 +86,7 @@ python3 manage.py shell
 
 ---
 
-**Autor**: Sistema de Gestión Hospitalaria  
+**Autor**: Lamas Gonzalo  
 **Versión**: 1.0  
 **Fecha**: 2026
 # Gestion_Guardia
