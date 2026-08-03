@@ -89,4 +89,5 @@ FlowBed es una aplicación web que optimiza la gestión de posiciones asistencia
 **Autor**: Lamas Gonzalo  
 **Versión**: 1.0  
 **Fecha**: 2026
-# Gestion_Guardia
+
+# FlowBed
