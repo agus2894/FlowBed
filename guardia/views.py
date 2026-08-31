@@ -2,13 +2,33 @@
 Vistas para la gestión de la guardia hospitalaria.
 """
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, StreamingHttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 import json
+import time
 
 from .models import Posicion, EventoEgreso
+
+
+def _serializar_posiciones():
+    """Helper para serializar todas las posiciones a lista de diccionarios"""
+    posiciones = Posicion.objects.all().order_by('id')
+    datos = []
+    for pos in posiciones:
+        datos.append({
+            'id': pos.id,
+            'tipo': pos.tipo,
+            'estado': pos.estado,
+            'nombre_paciente': pos.nombre_paciente,
+            'timestamp_estado': pos.timestamp_estado.isoformat() if pos.timestamp_estado else None,
+            'timestamp_ingreso': pos.timestamp_ingreso.isoformat() if pos.timestamp_ingreso else None,
+            'destino_solicitado': pos.destino_solicitado,
+            'destino_asignado': pos.destino_asignado,
+            'timestamp_destino_asignado': pos.timestamp_destino_asignado.isoformat() if pos.timestamp_destino_asignado else None,
+        })
+    return datos
 
 
 def dashboard(request):
@@ -26,23 +46,36 @@ def obtener_posiciones(request):
     """
     API: Devuelve todas las posiciones en formato JSON.
     """
-    posiciones = Posicion.objects.all().order_by('id')
-    datos = []
-    
-    for pos in posiciones:
-        datos.append({
-            'id': pos.id,
-            'tipo': pos.tipo,
-            'estado': pos.estado,
-            'nombre_paciente': pos.nombre_paciente,
-            'timestamp_estado': pos.timestamp_estado.isoformat() if pos.timestamp_estado else None,
-            'timestamp_ingreso': pos.timestamp_ingreso.isoformat() if pos.timestamp_ingreso else None,
-            'destino_solicitado': pos.destino_solicitado,
-            'destino_asignado': pos.destino_asignado,
-            'timestamp_destino_asignado': pos.timestamp_destino_asignado.isoformat() if pos.timestamp_destino_asignado else None,
-        })
-    
-    return JsonResponse({'posiciones': datos})
+    return JsonResponse({'posiciones': _serializar_posiciones()})
+
+
+def stream_posiciones(request):
+    """
+    API SSE: Transmite eventos en tiempo real mediante Server-Sent Events.
+    Notifica al instante a todos los navegadores conectados cuando cambia el estado de una posición.
+    """
+    def event_stream():
+        # Envía el estado inicial
+        posiciones_iniciales = _serializar_posiciones()
+        ultimo_hash = hash(json.dumps(posiciones_iniciales, sort_keys=True))
+        yield f"event: init\ndata: {json.dumps({'posiciones': posiciones_iniciales})}\n\n"
+
+        while True:
+            time.sleep(1)
+            posiciones_actuales = _serializar_posiciones()
+            hash_actual = hash(json.dumps(posiciones_actuales, sort_keys=True))
+
+            if hash_actual != ultimo_hash:
+                ultimo_hash = hash_actual
+                yield f"event: update\ndata: {json.dumps({'posiciones': posiciones_actuales})}\n\n"
+            elif int(time.time()) % 15 == 0:
+                # Keep-alive heartbeat
+                yield ": ping\n\n"
+
+    response = StreamingHttpResponse(event_stream(), content_type='text/event-stream')
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'
+    return response
 
 
 @csrf_exempt
@@ -92,7 +125,7 @@ def actualizar_estado(request, posicion_id):
                 # Solo crear si no hay destino asignado (ya que si lo hay, ya se creó el evento)
                 if not posicion.destino_asignado:
                     # Crear evento de egreso
-                    evento = EventoEgreso.objects.create(
+                    EventoEgreso.objects.create(
                         posicion_id=posicion_id,
                         paciente=nombre_paciente_anterior,
                         destino=destino_anterior,
@@ -202,43 +235,57 @@ def marcar_destino_asignado(request, posicion_id):
 def historial(request):
     """
     Vista del historial de pacientes con estadísticas de tiempos de espera.
-    Permite identificar cuellos de botella por destino.
+    Permite identificar cuellos de botella por destino y genera datos para Chart.js.
     """
-    from django.db.models import Avg, Count, Min, Max
-    from datetime import timedelta
-    
-    # Obtener todos los eventos de egreso (historial completo)
     eventos = EventoEgreso.objects.all().order_by('-timestamp_egreso')
     
-    # Calcular estadísticas por destino
+    # Estadísticas por destino y datos para gráficos
     estadisticas_por_destino = {}
+    chart_labels = []
+    chart_avg_data = []
+    chart_counts_data = []
+    colores_map = {
+        'PISO': '#3498db',
+        'UTI': '#e74c3c',
+        'UTIM': '#f39c12',
+    }
+    chart_colors = []
+    
     for destino_codigo, destino_nombre in Posicion.DESTINOS:
         eventos_destino = eventos.filter(destino=destino_codigo)
+        total_d = eventos_destino.count()
         
-        if eventos_destino.exists():
-            # Obtener duraciones
+        if total_d > 0:
             duraciones = [e.duracion.total_seconds() / 60 for e in eventos_destino if e.duracion]
-            
             if duraciones:
+                promedio = round(sum(duraciones) / len(duraciones), 1)
+                minimo = round(min(duraciones), 1)
+                maximo = round(max(duraciones), 1)
+                
                 estadisticas_por_destino[destino_codigo] = {
                     'nombre': destino_nombre,
-                    'total_pacientes': eventos_destino.count(),
-                    'tiempo_promedio_minutos': sum(duraciones) / len(duraciones),
-                    'tiempo_minimo_minutos': min(duraciones),
-                    'tiempo_maximo_minutos': max(duraciones),
+                    'total_pacientes': total_d,
+                    'tiempo_promedio_minutos': promedio,
+                    'tiempo_minimo_minutos': minimo,
+                    'tiempo_maximo_minutos': maximo,
                 }
+                
+                chart_labels.append(destino_nombre)
+                chart_avg_data.append(promedio)
+                chart_counts_data.append(total_d)
+                chart_colors.append(colores_map.get(destino_codigo, '#3498db'))
     
     # Estadísticas generales
     total_eventos = eventos.count()
     if total_eventos > 0:
         todas_duraciones = [e.duracion.total_seconds() / 60 for e in eventos if e.duracion]
-        tiempo_promedio_general = sum(todas_duraciones) / len(todas_duraciones) if todas_duraciones else 0
+        tiempo_promedio_general = round(sum(todas_duraciones) / len(todas_duraciones), 1) if todas_duraciones else 0
     else:
         tiempo_promedio_general = 0
     
-    # Eventos recientes con duración formateada
+    # Eventos recientes (últimos 100)
     eventos_lista = []
-    for evento in eventos[:50]:  # Últimos 50 eventos
+    for evento in eventos[:100]:
         duracion_minutos = int(evento.duracion.total_seconds() / 60) if evento.duracion else 0
         horas = duracion_minutos // 60
         minutos = duracion_minutos % 60
@@ -255,9 +302,18 @@ def historial(request):
             'duracion_formateada': f"{horas}h {minutos}m" if horas > 0 else f"{minutos}m",
         })
     
+    chart_data_json = json.dumps({
+        'labels': chart_labels,
+        'avg_times': chart_avg_data,
+        'counts': chart_counts_data,
+        'colors': chart_colors,
+    })
+    
     return render(request, 'guardia/historial.html', {
         'eventos': eventos_lista,
         'estadisticas_por_destino': estadisticas_por_destino,
         'total_eventos': total_eventos,
         'tiempo_promedio_general': tiempo_promedio_general,
+        'chart_data_json': chart_data_json,
     })
+

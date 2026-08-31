@@ -16,6 +16,9 @@ urlpatterns = [
     # API para obtener todas las posiciones
     path('api/posiciones/', views.obtener_posiciones, name='obtener_posiciones'),
     
+    # API SSE para sincronización en tiempo real
+    path('api/posiciones/stream/', views.stream_posiciones, name='stream_posiciones'),
+    
     # API para actualizar el estado de una posición
     path('api/posiciones/<str:posicion_id>/estado/', views.actualizar_estado, name='actualizar_estado'),
     

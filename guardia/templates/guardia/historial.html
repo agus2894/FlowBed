@@ -1,172 +1,163 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Historial - FlowBed</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f2f5; padding: 20px; }
-        .header { background: #2c3e50; color: white; padding: 20px; margin-bottom: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .header-content h1 { font-size: 28px; margin-bottom: 5px; }
-        .header-content p { opacity: 0.9; font-size: 14px; }
-        .btn-volver { background: white; color: #2c3e50; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-weight: 600; transition: all 0.3s; }
-        .btn-volver:hover { background: #ecf0f1; }
-        .container { max-width: 1400px; margin: 0 auto; }
-        
-        /* Estadísticas */
-        .estadisticas-generales { background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .estadisticas-generales h2 { margin-bottom: 20px; color: #2c3e50; font-size: 20px; }
-        .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 25px; }
-        .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 8px; color: white; }
-        .stat-card h3 { font-size: 14px; opacity: 0.9; margin-bottom: 10px; font-weight: normal; }
-        .stat-card .valor { font-size: 32px; font-weight: bold; }
-        
-        /* Estadísticas por destino */
-        .estadisticas-destino { background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .estadisticas-destino h2 { margin-bottom: 20px; color: #2c3e50; font-size: 20px; }
-        .destino-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
-        .destino-card { border: 2px solid #e0e0e0; border-radius: 8px; padding: 20px; transition: all 0.3s; }
-        .destino-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
-        .destino-card.piso { border-color: #3498db; }
-        .destino-card.uti { border-color: #e74c3c; }
-        .destino-card.utim { border-color: #f39c12; }
-        .destino-nombre { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; }
-        .destino-nombre.piso { color: #3498db; }
-        .destino-nombre.uti { color: #e74c3c; }
-        .destino-nombre.utim { color: #f39c12; }
-        .destino-stats { display: grid; gap: 10px; }
-        .destino-stat { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #ecf0f1; }
-        .destino-stat:last-child { border-bottom: none; }
-        .destino-stat-label { color: #7f8c8d; font-size: 14px; }
-        .destino-stat-valor { font-weight: 600; color: #2c3e50; }
-        .alerta { color: #e74c3c; font-weight: bold; }
-        
-        /* Tabla de historial */
-        .historial-table { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .historial-table h2 { margin-bottom: 20px; color: #2c3e50; font-size: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        thead { background: #34495e; color: white; }
-        th { padding: 12px; text-align: left; font-weight: 600; font-size: 14px; }
-        td { padding: 12px; border-bottom: 1px solid #ecf0f1; font-size: 14px; }
-        tbody tr:hover { background: #f8f9fa; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600; }
-        .badge-piso { background: #e3f2fd; color: #1976d2; }
-        .badge-uti { background: #ffebee; color: #c62828; }
-        .badge-utim { background: #fff3e0; color: #ef6c00; }
-        .duracion { font-weight: 600; font-family: 'Courier New', monospace; }
-        .duracion-normal { color: #27ae60; }
-        .duracion-alerta { color: #f39c12; }
-        .duracion-critica { color: #e74c3c; }
-        .no-datos { text-align: center; padding: 40px; color: #7f8c8d; font-style: italic; }
-    </style>
+    <title>Historial y Métricas de Espera - FlowBed</title>
+    <link rel="stylesheet" href="{% static 'guardia/css/historial.css' %}">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
-        <div class="header">
-            <div class="header-content">
-                <h1>📊 FlowBed - Historial y Análisis</h1>
-                <p>Identificación de cuellos de botella y estadísticas de tiempos de espera</p>
+        <!-- Header -->
+        <header class="header">
+            <div class="header-brand">
+                <div class="header-icon">📊</div>
+                <div class="header-info">
+                    <h1>Historial y Análisis de Guardia</h1>
+                    <p>Métricas de tiempos de espera, identificación de cuellos de botella y trazabilidad</p>
+                </div>
             </div>
-            <a href="{% url 'guardia:dashboard' %}" class="btn-volver">← Volver al Dashboard</a>
-        </div>
+            <a href="{% url 'guardia:dashboard' %}" class="btn-volver">
+                ← Volver al Dashboard
+            </a>
+        </header>
         
-        <!-- Estadísticas Generales -->
-        <div class="estadisticas-generales">
-            <h2>📈 Estadísticas Generales</h2>
-            <div class="stat-grid">
-                <div class="stat-card">
-                    <h3>Total de Pacientes</h3>
+        <!-- KPIs Generales -->
+        <section class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-card-info">
+                    <h3>Total de Pacientes Atendidos</h3>
                     <div class="valor">{{ total_eventos }}</div>
                 </div>
-                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                    <h3>Tiempo Promedio de Espera</h3>
-                    <div class="valor">{{ tiempo_promedio_general|floatformat:0 }} min</div>
+                <div class="stat-card-icon">👥</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card-info">
+                    <h3>Tiempo Promedio General</h3>
+                    <div class="valor">{{ tiempo_promedio_general }} <span style="font-size: 16px; color: #64748b; font-weight: 500;">min</span></div>
+                </div>
+                <div class="stat-card-icon">⏱️</div>
+            </div>
+        </section>
+
+        <!-- Gráficos Estadísticos con Chart.js -->
+        {% if estadisticas_por_destino %}
+        <section class="charts-grid">
+            <div class="chart-card">
+                <h3>📈 Tiempos Promedio de Espera por Destino</h3>
+                <div class="chart-container">
+                    <canvas id="chart-tiempos"></canvas>
                 </div>
             </div>
-        </div>
-        
-        <!-- Estadísticas por Destino -->
-        {% if estadisticas_por_destino %}
-        <div class="estadisticas-destino">
-            <h2>🎯 Análisis por Destino (Cuellos de Botella)</h2>
-            <div class="destino-grid">
+            <div class="chart-card">
+                <h3>🎯 Distribución de Pacientes Derivados</h3>
+                <div class="chart-container">
+                    <canvas id="chart-distribucion"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Análisis Detallado de Cuellos de Botella -->
+        <section class="destinos-section">
+            <h2>🎯 Análisis de Cuellos de Botella por Unidad de Destino</h2>
+            <div class="destinos-grid">
                 {% for codigo, stats in estadisticas_por_destino.items %}
                 <div class="destino-card {{ codigo|lower }}">
                     <div class="destino-nombre {{ codigo|lower }}">
                         {% if codigo == 'PISO' %}🏥{% elif codigo == 'UTI' %}🚨{% elif codigo == 'UTIM' %}⚕️{% endif %}
                         {{ stats.nombre }}
                     </div>
-                    <div class="destino-stats">
-                        <div class="destino-stat">
-                            <span class="destino-stat-label">Total de pacientes:</span>
-                            <span class="destino-stat-valor">{{ stats.total_pacientes }}</span>
+                    <div class="destino-stats-list">
+                        <div class="destino-stat-item">
+                            <span class="stat-label">Total de pacientes:</span>
+                            <span class="stat-val">{{ stats.total_pacientes }}</span>
                         </div>
-                        <div class="destino-stat">
-                            <span class="destino-stat-label">Tiempo promedio:</span>
-                            <span class="destino-stat-valor {% if stats.tiempo_promedio_minutos > 60 %}alerta{% endif %}">
-                                {{ stats.tiempo_promedio_minutos|floatformat:0 }} min
+                        <div class="destino-stat-item">
+                            <span class="stat-label">Tiempo promedio:</span>
+                            <span class="stat-val {% if stats.tiempo_promedio_minutos > 60 %}alerta{% endif %}">
+                                {{ stats.tiempo_promedio_minutos }} min
                             </span>
                         </div>
-                        <div class="destino-stat">
-                            <span class="destino-stat-label">Tiempo mínimo:</span>
-                            <span class="destino-stat-valor">{{ stats.tiempo_minimo_minutos|floatformat:0 }} min</span>
+                        <div class="destino-stat-item">
+                            <span class="stat-label">Tiempo mínimo:</span>
+                            <span class="stat-val">{{ stats.tiempo_minimo_minutos }} min</span>
                         </div>
-                        <div class="destino-stat">
-                            <span class="destino-stat-label">Tiempo máximo:</span>
-                            <span class="destino-stat-valor alerta">{{ stats.tiempo_maximo_minutos|floatformat:0 }} min</span>
+                        <div class="destino-stat-item">
+                            <span class="stat-label">Tiempo máximo:</span>
+                            <span class="stat-val {% if stats.tiempo_maximo_minutos > 60 %}alerta{% endif %}">
+                                {{ stats.tiempo_maximo_minutos }} min
+                            </span>
                         </div>
                     </div>
                 </div>
                 {% endfor %}
             </div>
-        </div>
+        </section>
         {% endif %}
-        
-        <!-- Tabla de Historial -->
-        <div class="historial-table">
-            <h2>📋 Historial de Pacientes (Últimos 50)</h2>
+
+        <!-- Tabla de Historial con Buscador en Vivo -->
+        <section class="history-section">
+            <div class="history-header">
+                <h2>📋 Registro Histórico de Pacientes (Últimos 100)</h2>
+                <div class="table-search">
+                    <span>🔍</span>
+                    <input type="text" id="table-search-input" placeholder="Filtrar por paciente, posición...">
+                </div>
+            </div>
+
             {% if eventos %}
-            <table>
-                <thead>
-                    <tr>
-                        <th>Posición</th>
-                        <th>Paciente</th>
-                        <th>Destino</th>
-                        <th>Hora Ingreso</th>
-                        <th>Hora Asignación</th>
-                        <th>Tiempo de Espera</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for evento in eventos %}
-                    <tr>
-                        <td><strong>{{ evento.posicion_id }}</strong></td>
-                        <td>{{ evento.paciente }}</td>
-                        <td>
-                            <span class="badge badge-{{ evento.destino_codigo|lower }}">
-                                {% if evento.destino_codigo == 'PISO' %}🏥{% elif evento.destino_codigo == 'UTI' %}🚨{% elif evento.destino_codigo == 'UTIM' %}⚕️{% endif %}
-                                {{ evento.destino }}
-                            </span>
-                        </td>
-                        <td>{{ evento.timestamp_ingreso|date:"d/m/Y H:i" }}</td>
-                        <td>{{ evento.timestamp_egreso|date:"d/m/Y H:i" }}</td>
-                        <td>
-                            <span class="duracion {% if evento.duracion_minutos < 30 %}duracion-normal{% elif evento.duracion_minutos < 60 %}duracion-alerta{% else %}duracion-critica{% endif %}">
-                                {{ evento.duracion_formateada }}
-                            </span>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Posición</th>
+                            <th>Paciente</th>
+                            <th>Destino Asignado</th>
+                            <th>Hora Ingreso</th>
+                            <th>Hora Asignación</th>
+                            <th>Tiempo de Espera</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-historial-body">
+                        {% for evento in eventos %}
+                        <tr>
+                            <td><strong>{{ evento.posicion_id }}</strong></td>
+                            <td>{{ evento.paciente }}</td>
+                            <td>
+                                <span class="badge-destino badge-{{ evento.destino_codigo|lower }}">
+                                    {% if evento.destino_codigo == 'PISO' %}🏥{% elif evento.destino_codigo == 'UTI' %}🚨{% elif evento.destino_codigo == 'UTIM' %}⚕️{% endif %}
+                                    {{ evento.destino }}
+                                </span>
+                            </td>
+                            <td>{{ evento.timestamp_ingreso|date:"d/m/Y H:i" }}</td>
+                            <td>{{ evento.timestamp_egreso|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <span class="duracion-tag {% if evento.duracion_minutos < 30 %}normal{% elif evento.duracion_minutos < 60 %}alerta{% else %}critico{% endif %}">
+                                    {{ evento.duracion_formateada }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
             {% else %}
-            <div class="no-datos">
-                <p>No hay datos en el historial todavía.</p>
-                <p>Los datos aparecerán cuando se marquen destinos asignados a los pacientes.</p>
+            <div class="no-data">
+                <p>No se registran eventos de egreso finalizados en el sistema aún.</p>
+                <p>Aparecerán automáticamente en cuanto se asigne destino final a los pacientes.</p>
             </div>
             {% endif %}
-        </div>
+        </section>
     </div>
+
+    <!-- JSON Payload para Gráficos Chart.js -->
+    <script id="chart-data-payload" type="application/json">
+        {{ chart_data_json|safe }}
+    </script>
+    <script src="{% static 'guardia/js/historial.js' %}"></script>
 </body>
 </html>
+

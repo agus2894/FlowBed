@@ -62,32 +62,31 @@ FlowBed es una aplicación web que optimiza la gestión de posiciones asistencia
 
 ## 🎨 Tecnologías
 
-- **Backend**: Django 6.0.7
-- **Frontend**: HTML5 + CSS3 + JavaScript vanilla
+- **Backend**: Django (Python)
+- **Frontend**: HTML5 + CSS3 moderno + JavaScript Vanilla (Modular en `guardia/static/`)
+- **Visualización Analítica**: Chart.js
+- **Tiempo Real**: Server-Sent Events (SSE) con `EventSource` y reconexión automática
 - **Base de datos**: SQLite
-- **Sin frameworks JS**: Todo el código JS está embebido en el template
 
 ## 📝 Notas
 
-- La aplicación actualiza automáticamente cada 30 segundos
-- No requiere autenticación (según especificaciones)
-- Ideal para uso en hospitales con pantallas compartidas
-- Código comentado y simple para fácil mantenimiento
-
+- La aplicación se actualiza en tiempo real instantáneo mediante Server-Sent Events (SSE)
+- No requiere autenticación (diseñado para estaciones y terminales compartidas de guardia)
+- Notificaciones flotantes tipo Toast para alertar cambios entre operadores
+- Buscador y filtrado dinámico en tiempo real
+- Gráficos interactivos de tiempos de espera y cuellos de botella por destino
 
 ## 📈 Próximas mejoras (opcional)
 
-- Agregar gráficos de estadísticas
 - Exportar reportes en PDF/Excel
-- Notificaciones por email/SMS
-- Integración con sistema de historias clínicas
-- Autenticación y roles de usuario
-- Vista de histórico completo en el dashboard
+- Integración con sistema de historias clínicas (HL7 / FHIR)
+- Sistema de Triage por criticidad
+- Autenticación y roles de usuario (opcional)
 
 ---
 
 **Autor**: Lamas Gonzalo  
-**Versión**: 1.0  
+**Versión**: 2.0  
 **Fecha**: 2026
 
 # FlowBed
