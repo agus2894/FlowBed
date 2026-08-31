@@ -29,7 +29,63 @@ FlowBed es una aplicación web que optimiza la gestión de posiciones asistencia
   - **Análisis de cuellos de botella**: Estadísticas por destino para identificar demoras
   - **Alertas visuales**: Tiempos coloreados según criticidad (verde < 30min, amarillo < 60min, rojo > 60min)
 
-## 📱 Cómo usar la aplicación
+## 🚀 Inicio Rápido (Instalación y Ejecución)
+
+Sigue estos sencillos pasos para poner en marcha el proyecto en tu máquina local:
+
+### 1. Ubicarse en el directorio del proyecto
+```bash
+cd /ruta/hacia/Gestor_Camas
+```
+
+### 2. Activar el entorno virtual
+
+- **En Linux / macOS**:
+  ```bash
+  source venv/bin/activate
+  ```
+- **En Windows (PowerShell / CMD)**:
+  ```cmd
+  venv\Scripts\activate
+  ```
+  *(Nota: Si necesitas crear un entorno virtual nuevo desde cero, ejecuta `python -m venv venv` antes de activarlo).*
+
+### 3. Instalar las dependencias
+```bash
+pip install -r requirements.txt
+```
+
+### 4. Aplicar las migraciones de la base de datos
+```bash
+python manage.py migrate
+```
+
+### 5. Inicializar las posiciones asistenciales *(Solo la primera vez)*
+Crea automáticamente las 22 posiciones (9 camas, 8 consultorios, 4 shock rooms y 1 aislamiento):
+```bash
+python manage.py inicializar_posiciones
+```
+
+### 6. Iniciar el servidor
+```bash
+python manage.py runserver
+```
+
+### 7. Abrir la aplicación
+Accede desde tu navegador web a:
+👉 **[http://127.0.0.1:8000/](http://127.0.0.1:8000/)**
+
+---
+
+### 🧪 Ejecutar los Tests Automatizados
+Para verificar que todos los módulos y endpoints funcionen correctamente:
+```bash
+python manage.py test
+```
+
+---
+
+## 📱 Manual de Uso Rápido
 
 ### Ocupar una posición con paciente
 1. Hacer click en una posición LIBRE
