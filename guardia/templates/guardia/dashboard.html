@@ -130,7 +130,7 @@
         </section>
     </div>
 
-    <!-- Modal para Cambio de Estado -->
+    <!-- Modal para Gestión / Ingreso General -->
     <div class="modal" id="modalEstado">
         <div class="modal-content">
             <div class="modal-header">
@@ -140,9 +140,9 @@
                 <div class="form-group">
                     <label class="form-label">Estado Asistencial:</label>
                     <select class="form-select" id="select-estado">
-                        <option value="LIBRE">🟢 Libre</option>
-                        <option value="OCUPADO">🔴 Ocupado</option>
-                        <option value="LIMPIEZA">🧹 En Limpieza</option>
+                        <option value="LIBRE">🟢 Libre (Desocupada)</option>
+                        <option value="OCUPADO">🔴 Ocupado (Ingreso Paciente)</option>
+                        <option value="LIMPIEZA">🧹 En Limpieza / Higiene</option>
                         <option value="RESERVADO">🔵 Reservado</option>
                         <option value="FUERA_SERVICIO">⚪ Fuera de Servicio</option>
                     </select>
@@ -152,12 +152,12 @@
                     <input type="text" class="form-input" id="input-paciente" placeholder="Nombre y Apellido del paciente">
                 </div>
                 <div class="form-group" id="grupo-destino" style="display: none;">
-                    <label class="form-label">Destino Solicitado:</label>
+                    <label class="form-label">Solicitud de Cama Inicial (Opcional):</label>
                     <select class="form-select" id="select-destino-ocupado">
-                        <option value="">Seleccione destino a solicitar</option>
-                        <option value="PISO">🏥 Piso</option>
-                        <option value="UTI">🚨 UTI (Terapia Intensiva)</option>
-                        <option value="UTIM">⚕️ UTIM (Cuidados Especiales)</option>
+                        <option value="">Iniciar en Evaluación / Atención (Sin solicitud)</option>
+                        <option value="PISO">🏥 Solicitar Cama de Piso</option>
+                        <option value="UTI">🚨 Solicitar Cama de UTI</option>
+                        <option value="UTIM">⚕️ Solicitar Cama de UTIM</option>
                     </select>
                 </div>
             </div>
@@ -168,29 +168,84 @@
         </div>
     </div>
 
-    <!-- Modal para Marcar Destino Asignado -->
-    <div class="modal" id="modalDestino">
+    <!-- Modal Paso 1: Solicitar Cama -->
+    <div class="modal" id="modalSolicitarCama">
         <div class="modal-content">
             <div class="modal-header">
-                📍 Confirmar Asignación Final - <span id="modal-destino-posicion-id" style="color: #10b981;"></span>
+                📋 Solicitar Cama de Internación - <span id="modal-solicitar-posicion-id" style="color: #3b82f6;"></span>
             </div>
             <div class="modal-body">
-                <p style="margin-bottom: 16px; color: #475569; font-size: 14px;">
-                    Seleccione la unidad definitiva donde fue trasladado/asignado el paciente para registrar el egreso y detener el cronómetro:
+                <p style="margin-bottom: 14px; color: #475569; font-size: 14px;">
+                    Paciente: <strong id="modal-solicitar-paciente-nombre" style="color: #0f172a;"></strong>
                 </p>
                 <div class="form-group">
-                    <label class="form-label">Destino Asignado:</label>
-                    <select class="form-select" id="select-destino-final">
-                        <option value="">Seleccionar destino...</option>
+                    <label class="form-label">Sector Requerido:</label>
+                    <select class="form-select" id="select-solicitar-destino">
+                        <option value="">Seleccione sector...</option>
                         <option value="PISO">🏥 Cama de Piso</option>
-                        <option value="UTI">🚨 Cama UTI</option>
-                        <option value="UTIM">⚕️ Cama UTIM</option>
+                        <option value="UTI">🚨 Unidad de Terapia Intensiva (UTI)</option>
+                        <option value="UTIM">⚕️ Unidad de Cuidados Especiales (UTIM)</option>
                     </select>
                 </div>
             </div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="cerrarModalDestino()">Cancelar</button>
-                <button class="btn btn-primary" style="background: #10b981;" onclick="guardarDestino()">Confirmar Asignación</button>
+                <button class="btn btn-secondary" onclick="cerrarModalSolicitar()">Cancelar</button>
+                <button class="btn btn-primary" onclick="enviarSolicitudCama()">Generar Solicitud ⏱️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Paso 2: Aceptar / Asignar Cama -->
+    <div class="modal" id="modalAceptarAsignar">
+        <div class="modal-content">
+            <div class="modal-header">
+                ✅ Aceptar y Asignar Cama - <span id="modal-aceptar-posicion-id" style="color: #10b981;"></span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 14px; color: #475569; font-size: 14px;">
+                    Paciente: <strong id="modal-aceptar-paciente-nombre" style="color: #0f172a;"></strong>
+                </p>
+                <div class="form-group">
+                    <label class="form-label">Sector Confirmado:</label>
+                    <select class="form-select" id="select-aceptar-destino">
+                        <option value="PISO">🏥 Piso</option>
+                        <option value="UTI">🚨 UTI</option>
+                        <option value="UTIM">⚕️ UTIM</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Detalle de Cama Asignada (Opcional):</label>
+                    <input type="text" class="form-input" id="input-cama-detalle" placeholder="Ej: Cama 304, Habitación 12...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalAceptar()">Cancelar</button>
+                <button class="btn btn-primary" style="background: #10b981;" onclick="confirmarAsignacionCama()">Confirmar Asignación ⏹️</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Paso 3: Confirmar Traslado y Liberar Cama de Guardia -->
+    <div class="modal" id="modalTraslado">
+        <div class="modal-content">
+            <div class="modal-header">
+                🚚 Confirmar Traslado del Paciente - <span id="modal-traslado-posicion-id" style="color: #f59e0b;"></span>
+            </div>
+            <div class="modal-body">
+                <p style="margin-bottom: 14px; color: #475569; font-size: 14px;">
+                    Se registrará el egreso de <strong id="modal-traslado-paciente-nombre" style="color: #0f172a;"></strong> hacia <strong id="modal-traslado-destino-info" style="color: #2563eb;"></strong>.
+                </p>
+                <div class="form-group">
+                    <label class="form-label">¿Cómo dejar la posición en guardia?:</label>
+                    <select class="form-select" id="select-traslado-siguiente-estado">
+                        <option value="LIMPIEZA">🧹 En Limpieza (Recomendado para higiene y desinfección)</option>
+                        <option value="LIBRE">🟢 Libre de inmediato (Lista para otro paciente)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="cerrarModalTraslado()">Cancelar</button>
+                <button class="btn btn-primary" style="background: #f59e0b;" onclick="confirmarTrasladoPaciente()">Confirmar Traslado y Liberar Cama</button>
             </div>
         </div>
     </div>

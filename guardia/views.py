@@ -1,5 +1,5 @@
 """
-Vistas para la gestión de la guardia hospitalaria.
+Vistas para la gestión de la guardia hospitalaria y circuito de camas.
 """
 from django.shortcuts import render
 from django.http import JsonResponse, StreamingHttpResponse
@@ -24,8 +24,11 @@ def _serializar_posiciones():
             'nombre_paciente': pos.nombre_paciente,
             'timestamp_estado': pos.timestamp_estado.isoformat() if pos.timestamp_estado else None,
             'timestamp_ingreso': pos.timestamp_ingreso.isoformat() if pos.timestamp_ingreso else None,
+            'etapa_circuito': pos.etapa_circuito,
             'destino_solicitado': pos.destino_solicitado,
+            'timestamp_solicitud': pos.timestamp_solicitud.isoformat() if pos.timestamp_solicitud else None,
             'destino_asignado': pos.destino_asignado,
+            'cama_asignada_detalle': pos.cama_asignada_detalle,
             'timestamp_destino_asignado': pos.timestamp_destino_asignado.isoformat() if pos.timestamp_destino_asignado else None,
         })
     return datos
@@ -52,7 +55,7 @@ def obtener_posiciones(request):
 def stream_posiciones(request):
     """
     API SSE: Transmite eventos en tiempo real mediante Server-Sent Events.
-    Notifica al instante a todos los navegadores conectados cuando cambia el estado de una posición.
+    Notifica al instante a todos los navegadores conectados cuando cambia el estado o etapa de una posición.
     """
     def event_stream():
         # Envía el estado inicial
@@ -82,11 +85,11 @@ def stream_posiciones(request):
 @require_http_methods(["POST"])
 def actualizar_estado(request, posicion_id):
     """
-    API: Actualiza el estado de una posición.
+    API: Actualiza el estado de una posición (ingreso, reserva, fuera de servicio, etc.).
     Espera JSON: {
-        "estado": "LIBRE|OCUPADO|LIMPIEZA|RESERVADO|FUERA_SERVICIO", 
-        "nombre_paciente": "opcional",
-        "destino_solicitado": "PISO|UTI|UTIM" (solo si estado es OCUPADO)
+        "estado": "LIBRE|OCUPADO|LIMPIEZA|RESERVADO|FUERA_SERVICIO",
+        "nombre_paciente": "requerido si estado es OCUPADO",
+        "destino_solicitado": "PISO|UTI|UTIM (opcional si estado es OCUPADO)"
     }
     """
     try:
@@ -99,25 +102,23 @@ def actualizar_estado(request, posicion_id):
         destino_anterior = posicion.destino_solicitado
         
         nuevo_estado = data.get('estado')
-        nombre_paciente = data.get('nombre_paciente', '')
-        destino_solicitado = data.get('destino_solicitado', '')
+        nombre_paciente = data.get('nombre_paciente', '').strip()
+        destino_solicitado = data.get('destino_solicitado', '').strip()
         
         # Validar que el estado sea válido
         estados_validos = [e[0] for e in Posicion.ESTADOS]
         if nuevo_estado not in estados_validos:
             return JsonResponse({'error': 'Estado inválido'}, status=400)
         
-        # Si pasa a OCUPADO, debe tener nombre de paciente y destino
+        # Si pasa a OCUPADO, debe tener nombre de paciente (el destino es opcional en el ingreso)
         if nuevo_estado == 'OCUPADO':
             if not nombre_paciente:
-                return JsonResponse({'error': 'Debe proporcionar el nombre del paciente'}, status=400)
-            if not destino_solicitado:
-                return JsonResponse({'error': 'Debe seleccionar el destino del paciente'}, status=400)
+                return JsonResponse({'error': 'Debe ingresar el nombre del paciente'}, status=400)
             
-            # Validar destino
-            destinos_validos = [d[0] for d in Posicion.DESTINOS]
-            if destino_solicitado not in destinos_validos:
-                return JsonResponse({'error': 'Destino inválido'}, status=400)
+            if destino_solicitado:
+                destinos_validos = [d[0] for d in Posicion.DESTINOS]
+                if destino_solicitado not in destinos_validos:
+                    return JsonResponse({'error': 'Destino inválido'}, status=400)
         
         # Si estaba OCUPADO y cambia a otro estado, crear EventoEgreso (solo si no se creó ya al marcar destino)
         if estado_anterior == 'OCUPADO' and nuevo_estado != 'OCUPADO':
@@ -133,33 +134,34 @@ def actualizar_estado(request, posicion_id):
                     )
         
         # Actualizar la posición
-        posicion.estado = nuevo_estado
-        
         if nuevo_estado == 'OCUPADO':
+            posicion.estado = 'OCUPADO'
             posicion.nombre_paciente = nombre_paciente
-            posicion.destino_solicitado = destino_solicitado
-            posicion.timestamp_ingreso = timezone.now()
+            if not posicion.timestamp_ingreso:
+                posicion.timestamp_ingreso = timezone.now()
+            
+            # Si al ingresar ya se solicita cama directamente:
+            if destino_solicitado:
+                posicion.destino_solicitado = destino_solicitado
+                posicion.timestamp_solicitud = timezone.now()
+                posicion.etapa_circuito = 'SOLICITADA'
+            else:
+                posicion.destino_solicitado = None
+                posicion.etapa_circuito = 'ATENCION'
         else:
-            # Al cambiar de OCUPADO a otro estado, limpiar todos los datos
+            # Al pasar a otro estado que no sea OCUPADO, se limpian los datos del paciente
+            posicion.estado = nuevo_estado
             posicion.nombre_paciente = None
-            posicion.destino_solicitado = None
             posicion.timestamp_ingreso = None
+            posicion.etapa_circuito = 'ATENCION'
+            posicion.destino_solicitado = None
+            posicion.timestamp_solicitud = None
             posicion.destino_asignado = None
+            posicion.cama_asignada_detalle = None
             posicion.timestamp_destino_asignado = None
         
         posicion.save()
-        
-        return JsonResponse({
-            'success': True,
-            'posicion': {
-                'id': posicion.id,
-                'estado': posicion.estado,
-                'nombre_paciente': posicion.nombre_paciente,
-                'timestamp_estado': posicion.timestamp_estado.isoformat(),
-                'timestamp_ingreso': posicion.timestamp_ingreso.isoformat() if posicion.timestamp_ingreso else None,
-                'destino_solicitado': posicion.destino_solicitado,
-            }
-        })
+        return JsonResponse({'success': True, 'posicion': _serializar_posiciones()})
         
     except Posicion.DoesNotExist:
         return JsonResponse({'error': 'Posición no encontrada'}, status=404)
@@ -171,23 +173,52 @@ def actualizar_estado(request, posicion_id):
 
 @csrf_exempt
 @require_http_methods(["POST"])
-def marcar_destino_asignado(request, posicion_id):
+def solicitar_cama(request, posicion_id):
     """
-    API: Marca el destino final asignado y detiene el cronómetro.
-    Espera JSON: {
-        "destino_asignado": "PISO|UTI|UTIM"
-    }
+    API - Paso 1 del Circuito: Solicita una cama a internación (PISO, UTI, UTIM).
+    Inicia el cronómetro de espera de cama.
     """
     try:
         posicion = Posicion.objects.get(id=posicion_id)
-        data = json.loads(request.body)
+        if posicion.estado != 'OCUPADO':
+            return JsonResponse({'error': 'La posición debe estar ocupada para solicitar cama'}, status=400)
         
-        # Validar que la posición esté ocupada
+        data = json.loads(request.body)
+        destino_solicitado = data.get('destino_solicitado', '').strip()
+        
+        destinos_validos = [d[0] for d in Posicion.DESTINOS]
+        if destino_solicitado not in destinos_validos:
+            return JsonResponse({'error': 'Destino inválido'}, status=400)
+        
+        posicion.destino_solicitado = destino_solicitado
+        posicion.timestamp_solicitud = timezone.now()
+        posicion.etapa_circuito = 'SOLICITADA'
+        posicion.save()
+        
+        return JsonResponse({'success': True, 'posicion': _serializar_posiciones()})
+        
+    except Posicion.DoesNotExist:
+        return JsonResponse({'error': 'Posición no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def aceptar_asignar_cama(request, posicion_id):
+    """
+    API - Paso 2 del Circuito: El sector acepta al paciente y se le asigna la cama final.
+    Detiene el cronómetro de búsqueda de cama.
+    """
+    try:
+        posicion = Posicion.objects.get(id=posicion_id)
         if posicion.estado != 'OCUPADO':
             return JsonResponse({'error': 'La posición debe estar ocupada'}, status=400)
         
-        # Obtener y validar el destino asignado
-        destino_asignado = data.get('destino_asignado', '')
+        data = json.loads(request.body)
+        destino_asignado = data.get('destino_asignado', '').strip()
+        cama_asignada_detalle = data.get('cama_asignada_detalle', '').strip()
+        
         if not destino_asignado:
             return JsonResponse({'error': 'Debe proporcionar el destino asignado'}, status=400)
         
@@ -198,31 +229,14 @@ def marcar_destino_asignado(request, posicion_id):
         
         # Marcar el destino asignado y el timestamp (esto detiene el cronómetro)
         posicion.destino_asignado = destino_asignado
+        posicion.cama_asignada_detalle = cama_asignada_detalle
         posicion.timestamp_destino_asignado = timezone.now()
+        posicion.etapa_circuito = 'ASIGNADA'
         posicion.save()
         
-        # Crear evento en el historial
-        if posicion.timestamp_ingreso and posicion.nombre_paciente:
-            EventoEgreso.objects.create(
-                posicion_id=posicion_id,
-                paciente=posicion.nombre_paciente,
-                destino=destino_asignado,
-                timestamp_ingreso=posicion.timestamp_ingreso,
-                timestamp_egreso=posicion.timestamp_destino_asignado,
-            )
-        
-        return JsonResponse({
-            'success': True,
-            'posicion': {
-                'id': posicion.id,
-                'estado': posicion.estado,
-                'nombre_paciente': posicion.nombre_paciente,
-                'timestamp_ingreso': posicion.timestamp_ingreso.isoformat() if posicion.timestamp_ingreso else None,
-                'destino_solicitado': posicion.destino_solicitado,
-                'destino_asignado': posicion.destino_asignado,
-                'timestamp_destino_asignado': posicion.timestamp_destino_asignado.isoformat(),
-            }
-        })
+        # El EventoEgreso se crea recién en el traslado (Paso 3), cuando el paciente
+        # efectivamente deja la posición de guardia; aquí solo se reserva la cama destino.
+        return JsonResponse({'success': True, 'posicion': _serializar_posiciones()})
         
     except Posicion.DoesNotExist:
         return JsonResponse({'error': 'Posición no encontrada'}, status=404)
@@ -232,9 +246,97 @@ def marcar_destino_asignado(request, posicion_id):
         return JsonResponse({'error': str(e)}, status=500)
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def trasladar_egresar_paciente(request, posicion_id):
+    """
+    API - Paso 3 del Circuito: Se efectúa el traslado físico del paciente.
+    Registra el evento histórico completo y libera la cama de guardia pasándola a LIMPIEZA o LIBRE.
+    """
+    try:
+        posicion = Posicion.objects.get(id=posicion_id)
+        if posicion.estado != 'OCUPADO':
+            return JsonResponse({'error': 'La posición debe estar ocupada'}, status=400)
+        
+        data = json.loads(request.body) if request.body else {}
+        siguiente_estado = data.get('siguiente_estado', 'LIMPIEZA')
+        if siguiente_estado not in ['LIMPIEZA', 'LIBRE']:
+            siguiente_estado = 'LIMPIEZA'
+        
+        # Registrar en Historial
+        destino_final = posicion.destino_asignado or posicion.destino_solicitado or 'PISO'
+        timestamp_egreso_actual = timezone.now()
+        
+        EventoEgreso.objects.create(
+            posicion_id=posicion.id,
+            paciente=posicion.nombre_paciente or 'Paciente',
+            destino=destino_final,
+            cama_asignada_detalle=posicion.cama_asignada_detalle,
+            timestamp_ingreso=posicion.timestamp_ingreso or timestamp_egreso_actual,
+            timestamp_solicitud=posicion.timestamp_solicitud,
+            timestamp_asignacion=posicion.timestamp_destino_asignado or timestamp_egreso_actual,
+            timestamp_egreso=timestamp_egreso_actual,
+        )
+        
+        # Liberar la posición en guardia
+        posicion.estado = siguiente_estado
+        posicion.nombre_paciente = None
+        posicion.timestamp_ingreso = None
+        posicion.etapa_circuito = 'ATENCION'
+        posicion.destino_solicitado = None
+        posicion.timestamp_solicitud = None
+        posicion.destino_asignado = None
+        posicion.cama_asignada_detalle = None
+        posicion.timestamp_destino_asignado = None
+        posicion.save()
+        
+        return JsonResponse({'success': True, 'posicion': _serializar_posiciones()})
+        
+    except Posicion.DoesNotExist:
+        return JsonResponse({'error': 'Posición no encontrada'}, status=404)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'JSON inválido'}, status=400)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def completar_limpieza(request, posicion_id):
+    """
+    API: Finaliza la limpieza/desinfección de una cama y la deja LIBRE para el próximo paciente.
+    """
+    try:
+        posicion = Posicion.objects.get(id=posicion_id)
+        posicion.estado = 'LIBRE'
+        posicion.nombre_paciente = None
+        posicion.timestamp_ingreso = None
+        posicion.etapa_circuito = 'ATENCION'
+        posicion.destino_solicitado = None
+        posicion.timestamp_solicitud = None
+        posicion.destino_asignado = None
+        posicion.cama_asignada_detalle = None
+        posicion.timestamp_destino_asignado = None
+        posicion.save()
+        
+        return JsonResponse({'success': True, 'posicion': _serializar_posiciones()})
+        
+    except Posicion.DoesNotExist:
+        return JsonResponse({'error': 'Posición no encontrada'}, status=404)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+# Endpoint de compatibilidad hacia atrás
+@csrf_exempt
+@require_http_methods(["POST"])
+def marcar_destino_asignado(request, posicion_id):
+    return aceptar_asignar_cama(request, posicion_id)
+
+
 def historial(request):
     """
-    Vista del historial de pacientes con estadísticas de tiempos de espera.
+    Vista del historial de pacientes con estadísticas de tiempos de espera de cama y estadía en guardia.
     Permite identificar cuellos de botella por destino y genera datos para Chart.js.
     """
     eventos = EventoEgreso.objects.all().order_by('-timestamp_egreso')
@@ -256,7 +358,11 @@ def historial(request):
         total_d = eventos_destino.count()
         
         if total_d > 0:
-            duraciones = [e.duracion.total_seconds() / 60 for e in eventos_destino if e.duracion]
+            duraciones = [
+                (e.duracion_espera_cama.total_seconds() / 60) if e.duracion_espera_cama 
+                else (e.duracion.total_seconds() / 60) 
+                for e in eventos_destino if (e.duracion_espera_cama or e.duracion)
+            ]
             if duraciones:
                 promedio = round(sum(duraciones) / len(duraciones), 1)
                 minimo = round(min(duraciones), 1)
@@ -278,7 +384,11 @@ def historial(request):
     # Estadísticas generales
     total_eventos = eventos.count()
     if total_eventos > 0:
-        todas_duraciones = [e.duracion.total_seconds() / 60 for e in eventos if e.duracion]
+        todas_duraciones = [
+            (e.duracion_espera_cama.total_seconds() / 60) if e.duracion_espera_cama 
+            else (e.duracion.total_seconds() / 60) 
+            for e in eventos if (e.duracion_espera_cama or e.duracion)
+        ]
         tiempo_promedio_general = round(sum(todas_duraciones) / len(todas_duraciones), 1) if todas_duraciones else 0
     else:
         tiempo_promedio_general = 0
@@ -286,9 +396,15 @@ def historial(request):
     # Eventos recientes (últimos 100)
     eventos_lista = []
     for evento in eventos[:100]:
-        duracion_minutos = int(evento.duracion.total_seconds() / 60) if evento.duracion else 0
+        dur_espera = evento.duracion_espera_cama or evento.duracion
+        duracion_minutos = int(dur_espera.total_seconds() / 60) if dur_espera else 0
         horas = duracion_minutos // 60
         minutos = duracion_minutos % 60
+        
+        dur_total = evento.duracion_total_guardia
+        duracion_total_minutos = int(dur_total.total_seconds() / 60) if dur_total else duracion_minutos
+        t_horas = duracion_total_minutos // 60
+        t_minutos = duracion_total_minutos % 60
         
         eventos_lista.append({
             'id': evento.id,
@@ -296,10 +412,14 @@ def historial(request):
             'paciente': evento.paciente,
             'destino': evento.get_destino_display(),
             'destino_codigo': evento.destino,
+            'cama_asignada_detalle': evento.cama_asignada_detalle or '',
             'timestamp_ingreso': evento.timestamp_ingreso,
+            'timestamp_solicitud': evento.timestamp_solicitud,
+            'timestamp_asignacion': evento.timestamp_asignacion,
             'timestamp_egreso': evento.timestamp_egreso,
             'duracion_minutos': duracion_minutos,
             'duracion_formateada': f"{horas}h {minutos}m" if horas > 0 else f"{minutos}m",
+            'duracion_total_formateada': f"{t_horas}h {t_minutos}m" if t_horas > 0 else f"{t_minutos}m",
         })
     
     chart_data_json = json.dumps({
@@ -316,4 +436,5 @@ def historial(request):
         'tiempo_promedio_general': tiempo_promedio_general,
         'chart_data_json': chart_data_json,
     })
+
 

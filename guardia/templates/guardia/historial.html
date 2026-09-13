@@ -115,10 +115,11 @@
                         <tr>
                             <th>Posición</th>
                             <th>Paciente</th>
-                            <th>Destino Asignado</th>
-                            <th>Hora Ingreso</th>
-                            <th>Hora Asignación</th>
-                            <th>Tiempo de Espera</th>
+                            <th>Destino y Cama</th>
+                            <th>Ingreso / Solicitud</th>
+                            <th>Asignación / Traslado</th>
+                            <th>Espera de Cama</th>
+                            <th>Estadía en Guardia</th>
                         </tr>
                     </thead>
                     <tbody id="tabla-historial-body">
@@ -131,12 +132,30 @@
                                     {% if evento.destino_codigo == 'PISO' %}🏥{% elif evento.destino_codigo == 'UTI' %}🚨{% elif evento.destino_codigo == 'UTIM' %}⚕️{% endif %}
                                     {{ evento.destino }}
                                 </span>
+                                {% if evento.cama_asignada_detalle %}
+                                <div style="font-size: 12px; color: #475569; margin-top: 3px;">📍 {{ evento.cama_asignada_detalle }}</div>
+                                {% endif %}
                             </td>
-                            <td>{{ evento.timestamp_ingreso|date:"d/m/Y H:i" }}</td>
-                            <td>{{ evento.timestamp_egreso|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <div><small style="color: #64748b;">Ingreso:</small> {{ evento.timestamp_ingreso|date:"d/m/Y H:i" }}</div>
+                                {% if evento.timestamp_solicitud %}
+                                <div><small style="color: #64748b;">Solicitud:</small> {{ evento.timestamp_solicitud|date:"H:i" }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if evento.timestamp_asignacion %}
+                                <div><small style="color: #64748b;">Asignación:</small> {{ evento.timestamp_asignacion|date:"H:i" }}</div>
+                                {% endif %}
+                                <div><small style="color: #64748b;">Traslado:</small> {{ evento.timestamp_egreso|date:"d/m/Y H:i" }}</div>
+                            </td>
                             <td>
                                 <span class="duracion-tag {% if evento.duracion_minutos < 30 %}normal{% elif evento.duracion_minutos < 60 %}alerta{% else %}critico{% endif %}">
-                                    {{ evento.duracion_formateada }}
+                                    ⏱️ {{ evento.duracion_formateada }}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="duracion-tag" style="background: #f1f5f9; color: #334155;">
+                                    🏥 {{ evento.duracion_total_formateada }}
                                 </span>
                             </td>
                         </tr>
@@ -147,7 +166,7 @@
             {% else %}
             <div class="no-data">
                 <p>No se registran eventos de egreso finalizados en el sistema aún.</p>
-                <p>Aparecerán automáticamente en cuanto se asigne destino final a los pacientes.</p>
+                <p>Aparecerán automáticamente en cuanto se asigne y traslade a los pacientes.</p>
             </div>
             {% endif %}
         </section>
