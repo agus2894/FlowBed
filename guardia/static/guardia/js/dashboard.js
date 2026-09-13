@@ -272,21 +272,8 @@ function crearElementoPosicion(pos) {
         <div class="posicion-body">
     `;
 
-    if (pos.nombre_paciente) {
+    if (pos.estado === 'OCUPADO' && pos.nombre_paciente) {
         html += `<div class="posicion-paciente" title="${pos.nombre_paciente}">👤 ${pos.nombre_paciente}</div>`;
-    }
-
-    if (pos.destino_solicitado) {
-        html += `<div class="posicion-destino-solicitado"><span>Destino:</span> ${destinoIconos[pos.destino_solicitado] || pos.destino_solicitado}</div>`;
-    }
-
-    if (pos.destino_asignado) {
-        html += `<div class="posicion-destino-asignado">✅ Asignado a ${pos.destino_asignado}</div>`;
-    }
-
-    if (pos.estado === 'OCUPADO' && pos.timestamp_ingreso) {
-        const timestampFin = pos.timestamp_destino_asignado || null;
-        html += `<div class="posicion-cronometro crono-normal" data-timestamp="${pos.timestamp_ingreso}" data-timestamp-fin="${timestampFin || ''}">⏱️ 00:00:00</div>`;
     }
 
     html += `</div>`;
@@ -294,6 +281,11 @@ function crearElementoPosicion(pos) {
     if (pos.estado === 'OCUPADO') {
         if (pos.etapa_circuito === 'ATENCION') {
             html += `<div class="posicion-destino-solicitado" style="color: #475569; background: #f1f5f9;">🩺 En Atención Inicial</div>`;
+
+            // Cronómetro de tiempo en atención (desde el ingreso)
+            if (pos.timestamp_ingreso) {
+                html += `<div class="posicion-cronometro crono-normal" data-timestamp="${pos.timestamp_ingreso}" data-timestamp-fin="">⏱️ 00:00:00</div>`;
+            }
             html += `</div>`;
             html += `
                 <button class="btn-marcar-destino" style="background: #3b82f6;" onclick="event.stopPropagation(); abrirModalSolicitar('${pos.id}')">

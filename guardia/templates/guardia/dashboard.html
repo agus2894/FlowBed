@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FlowBed - Gestión de Guardia Hospitalaria en Tiempo Real</title>
-    <link rel="stylesheet" href="{% static 'guardia/css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'guardia/css/dashboard.css' %}?v={% now 'U' %}">
 </head>
 <body>
     <!-- Notificaciones Toast Flotantes -->
@@ -251,7 +251,7 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{% static 'guardia/js/dashboard.js' %}"></script>
+    <script src="{% static 'guardia/js/dashboard.js' %}?v={% now 'U' %}"></script>
 </body>
 </html>
 

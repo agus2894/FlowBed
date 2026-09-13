@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Historial y Métricas de Espera - FlowBed</title>
-    <link rel="stylesheet" href="{% static 'guardia/css/historial.css' %}">
+    <link rel="stylesheet" href="{% static 'guardia/css/historial.css' %}?v={% now 'U' %}">
     <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
@@ -176,7 +176,7 @@
     <script id="chart-data-payload" type="application/json">
         {{ chart_data_json|safe }}
     </script>
-    <script src="{% static 'guardia/js/historial.js' %}"></script>
+    <script src="{% static 'guardia/js/historial.js' %}?v={% now 'U' %}"></script>
 </body>
 </html>
 
